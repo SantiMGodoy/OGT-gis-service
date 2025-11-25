@@ -30,4 +30,7 @@ public interface SpatialFeatureRepository extends JpaRepository<SpatialFeature, 
     // Buscar features que intersectan con una geometría dada (ej. un barrio)
     @Query("SELECT f FROM SpatialFeature f WHERE intersects(f.geom, :filterGeom) = true")
     List<SpatialFeature> findIntersecting(@Param("filterGeom") Geometry filterGeom);
+
+    List<SpatialFeature> findByLayer_Code(String layerCode);
+
 }

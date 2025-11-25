@@ -8,32 +8,32 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "import_jobs")
+@Table(name = "export_jobs")
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ImportJob {
+@Builder
+public class ExportJob {
 
     @Id
     @UuidGenerator
     private UUID id;
 
     @Column(name = "job_type", nullable = false)
-    private String jobType; // IMPORT
+    private String jobType; // EXPORT
 
     @Column(nullable = false)
     private String status; // PENDING, PROCESSING, COMPLETED, FAILED
 
     @Column(columnDefinition = "NVARCHAR(MAX)")
-    private String parameters; // Ej: "SRID:31984"
+    private String parameters; // JSON con parámetros (format, filters...)
 
     @Column(name = "file_url", length = 1000)
     private String fileUrl;
 
-    @Column(name = "rows_processed")
-    private Integer rowsProcessed;
+    @Column(name = "rows_exported")
+    private Integer rowsExported;
 
     @Column(name = "error_message", columnDefinition = "NVARCHAR(MAX)")
     private String errorMessage;

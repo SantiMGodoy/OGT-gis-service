@@ -2,7 +2,8 @@ package com.ogt.gis.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Type;
+import org.hibernate.annotations.UuidGenerator;
 import org.locationtech.jts.geom.Geometry;
 
 import java.time.LocalDateTime;
@@ -10,29 +11,30 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "spatial_features")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class SpatialFeature {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @UuidGenerator
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "layer_id")
-    private MapLayer layer; // Vincula con una capa lógica (ej. "POSTES")
+    private MapLayer layer;
 
-    @Column(name = "external_id", length = 200)
-    private String externalId; // ID del objeto en otro servicio (ej. ID del LightPoint)
+    @Column(name = "external_id")
+    private String externalId;
 
-    // Esta es la magia de Hibernate Spatial
-    // SQL Server lo guardará como tipo 'geometry'
     @Column(columnDefinition = "geometry")
     private Geometry geom;
 
     @Column(columnDefinition = "NVARCHAR(MAX)")
-    private String properties; // JSON con atributos extra
+    private String properties;
 
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt = LocalDateTime.now();
 }

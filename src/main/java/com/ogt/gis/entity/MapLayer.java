@@ -2,43 +2,43 @@ package com.ogt.gis.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "map_layers")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class MapLayer {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @UuidGenerator
     private UUID id;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String code; // Ej: "LIGHT_POINTS"
+    @Column(nullable = false, unique = true)
+    private String code; // "light_points"
 
     @Column(nullable = false)
-    private String name; // Ej: "Puntos de Iluminación Pública"
+    private String name;
 
-    @Column(length = 30)
-    private String type; // VECTOR, RASTER, WMS
+    private String type;
 
-    private String source; // Origen de datos (ej. "SHAPEFILE")
+    private String source;
 
     @Column(columnDefinition = "NVARCHAR(MAX)")
-    private String style; // JSON con reglas de estilo
+    private String style;
 
-    @Builder.Default
     @Column(name = "is_active")
     private Boolean isActive = true;
 
-    @Builder.Default
     @Column(name = "z_index")
     private Integer zIndex = 0;
 
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt = LocalDateTime.now();
 }
