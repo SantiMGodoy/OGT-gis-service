@@ -2,39 +2,34 @@ package com.ogt.gis.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.annotations.CreationTimestamp;
 import org.locationtech.jts.geom.Geometry;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "spatial_features")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class SpatialFeature {
 
     @Id
-    @UuidGenerator
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "layer_id")
     private MapLayer layer;
 
-    @Column(name = "external_id")
+    @Column(name = "external_id", length = 200)
     private String externalId;
 
     @Column(columnDefinition = "geometry")
     private Geometry geom;
 
     @Column(columnDefinition = "NVARCHAR(MAX)")
-    private String properties;
+    private String properties; // JSON
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @CreationTimestamp
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
 }

@@ -24,7 +24,6 @@
         <geotools.version>30.0</geotools.version>
     </properties>
 
-    <!-- Repositorios OSGeo para GeoTools 30 -->
     <repositories>
         <repository>
             <id>osgeo</id>
@@ -99,7 +98,7 @@
             <artifactId>hibernate-spatial</artifactId>
         </dependency>
 
-        <!-- GeoTools 30 (API NUEVA: org.geotools.api.*) -->
+        <!-- GeoTools 30 -->
         <dependency>
             <groupId>org.geotools</groupId>
             <artifactId>gt-main</artifactId>
@@ -118,7 +117,7 @@
             <version>${geotools.version}</version>
         </dependency>
 
-        <!-- Proj4J (solo si necesitás transformaciones avanzadas) -->
+        <!-- Proj4J -->
         <dependency>
             <groupId>org.locationtech.proj4j</groupId>
             <artifactId>proj4j</artifactId>
@@ -133,7 +132,7 @@
 
         <dependency>
             <groupId>org.locationtech.jts</groupId>
-            <artifactId>jts-io</artifactId>
+            <artifactId>jts-core</artifactId>
             <version>1.19.0</version>
         </dependency>
 
@@ -144,9 +143,15 @@
             <version>${geotools.version}</version>
         </dependency>
 
+        <!-- OpenAPI / Swagger UI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.6.0</version>
+        </dependency>
+
     </dependencies>
 
-    <!-- Spring Cloud Versions -->
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -162,7 +167,6 @@
     <build>
         <plugins>
 
-            <!-- Compiler -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -177,7 +181,6 @@
                 </configuration>
             </plugin>
 
-            <!-- Spring Boot plugin -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

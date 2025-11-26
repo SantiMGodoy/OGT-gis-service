@@ -7,7 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/gis/districts")
@@ -21,12 +21,8 @@ public class DistrictController {
         return ResponseEntity.ok(districtService.getAll());
     }
 
-    @PostMapping
-    public ResponseEntity<DistrictBoundary> create(
-            @RequestParam String name,
-            @RequestParam String code,
-            @RequestBody Map<String, Object> geoJson // El polígono del barrio
-    ) {
-        return ResponseEntity.ok(districtService.createDistrict(name, code, geoJson));
+    @GetMapping("/{id}")
+    public ResponseEntity<DistrictBoundary> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok(districtService.getById(id));
     }
 }
