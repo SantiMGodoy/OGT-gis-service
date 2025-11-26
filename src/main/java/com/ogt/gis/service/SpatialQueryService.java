@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -86,5 +88,74 @@ public class SpatialQueryService {
                 .map(DistrictBoundary::getName)
                 .findFirst()
                 .orElse("Desconocido");
+    }
+
+    /**
+     * ✅ NUEVO - Calcula la distancia euclidiana entre dos features.
+     *
+     * @return Mapa con fromId, toId, distanceMeters y distanceKm
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> calculateDistance(UUID fromId, UUID toId) {
+        SpatialFeature from = featureRepository.findById(fromId)
+                .orElseThrow(() -> new RuntimeException("Feature origen no encontrado: " + fromId));
+
+        SpatialFeature to = featureRepository.findById(toId)
+                .orElseThrow(() -> new RuntimeException("Feature destino no encontrado: " + toId));
+
+        // Calcular distancia (en las unidades del SRID - metros para UTM)
+        double distanceMeters = from.getGeom().distance(to.getGeom());
+
+        return Map.of(
+                "fromId", fromId,
+                "fromExternalId", from.getExternalId() != null ? from.getExternalId() : "N/A",
+                "toId", toId,
+                "toExternalId", to.getExternalId() != null ? to.getExternalId() : "N/A",
+                "distanceMeters", Math.round(distanceMeters * 100.0) / 100.0, // 2 decimales
+                "distanceKm", Math.round((distanceMeters / 1000) * 100.0) / 100.0,
+                "srid", from.getGeom().getSRID()
+        );
+    }
+
+    /**
+     * ✅ NUEVO - Encuentra features que están dentro de un polígono GeoJSON.
+     */
+    @Transactional(readOnly = true)
+    public List<FeatureResponseDTO> findWithin(Map<String, Object> geoJsonPolygon, String layerCode) {
+        try {
+            // 1. Convertir GeoJSON a JTS Geometry
+            org.locationtech.jts.geom.Geometry polygon =
+                    com.ogt.gis.util.GeoJSONHelper.geoJsonToGeometry(geoJsonPolygon);
+
+            if (polygon == null || !polygon.getGeometryType().equals("Polygon")) {
+                throw new IllegalArgumentException("El cuerpo debe ser un Polygon GeoJSON válido");
+            }
+
+            // 2. Asignar SRID si no tiene
+            if (polygon.getSRID() == 0) {
+                polygon.setSRID(STORAGE_SRID);
+            }
+
+            // 3. Buscar intersecciones en la BD
+            List<SpatialFeature> features = featureRepository.findIntersecting(polygon);
+
+            // 4. Filtrar por capa y mapear a DTO
+            return features.stream()
+                    .filter(f -> f.getLayer() != null && f.getLayer().getCode().equals(layerCode))
+                    .map(f -> FeatureResponseDTO.builder()
+                            .id(f.getId())
+                            .externalId(f.getExternalId())
+                            .properties(f.getProperties())
+                            .location(new CoordinateDTO(
+                                    f.getGeom().getCoordinate().x,
+                                    f.getGeom().getCoordinate().y,
+                                    f.getGeom().getSRID()
+                            ))
+                            .build())
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error procesando consulta espacial: " + e.getMessage(), e);
+        }
     }
 }

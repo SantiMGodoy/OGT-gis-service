@@ -9,6 +9,7 @@ import com.ogt.gis.repository.DistrictBoundaryRepository;
 import com.ogt.gis.repository.ImportJobRepository;
 import com.ogt.gis.repository.MapLayerRepository;
 import com.ogt.gis.repository.SpatialFeatureRepository;
+import com.ogt.gis.service.CoordinateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.geotools.api.data.DataStore;
@@ -18,8 +19,6 @@ import org.geotools.api.feature.simple.SimpleFeature;
 import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.feature.FeatureIterator;
 import org.locationtech.jts.geom.*;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
@@ -40,6 +39,7 @@ public class GisImportWorker {
     private final DistrictBoundaryRepository districtRepository;
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
+    private final CoordinateService coordinateService;
 
     private static final String LIGHTPOINT_EXCHANGE = "ogt.lightpoint.events";
     private static final String LIGHTPOINT_IMPORT_KEY = "lightpoint.import.batch";
@@ -70,9 +70,16 @@ public class GisImportWorker {
             MapLayer layer = layerRepository.findByCode(layerCode)
                     .orElseThrow(() -> new RuntimeException("La capa no está registrada: " + layerCode));
 
-            int expectedSRID = layer.getSrid() != null ? layer.getSrid() : 31984;
-            String geometryTypeAllowed = layer.getGeometryType() != null ? layer.getGeometryType().toUpperCase() : null;
-            String businessTarget = layer.getBusinessTarget() != null ? layer.getBusinessTarget().toUpperCase() : "NONE";
+            int expectedSRID = layer.getSrid() != null
+                    ? layer.getSrid()
+                    : coordinateService.detectUTMZone(-40.3);
+
+            // ✅ SE DECLARA UNA SOLA VEZ AQUÍ
+            String geometryTypeAllowed =
+                    layer.getGeometryType() != null ? layer.getGeometryType().toUpperCase() : null;
+
+            String businessTarget =
+                    layer.getBusinessTarget() != null ? layer.getBusinessTarget().toUpperCase() : "NONE";
 
             File file = new File(job.getFileUrl());
             Map<String, Object> params = new HashMap<>();
@@ -110,7 +117,7 @@ public class GisImportWorker {
                     if (geom.getSRID() == 0) geom.setSRID(expectedSRID);
                     geom = ensureSRID(geom, expectedSRID);
 
-                    // --- RUTEO SEGÚN businessTarget ---
+                    // --- RUTEO POR TARGET ---
                     switch (businessTarget) {
 
                         case "LIGHT_POINT_SERVICE":
@@ -122,7 +129,8 @@ public class GisImportWorker {
                                 batchForRabbit.add(dto);
                             }
                             if (batchForRabbit.size() >= 50) {
-                                rabbitTemplate.convertAndSend(LIGHTPOINT_EXCHANGE, LIGHTPOINT_IMPORT_KEY, batchForRabbit);
+                                rabbitTemplate.convertAndSend(
+                                        LIGHTPOINT_EXCHANGE, LIGHTPOINT_IMPORT_KEY, batchForRabbit);
                                 processed += batchForRabbit.size();
                                 batchForRabbit.clear();
                             }
@@ -133,14 +141,14 @@ public class GisImportWorker {
                             processed++;
                             break;
 
-                        default: // NONE → capa de referencia
+                        default: // NONE → referencia
                             saveSpatialFeature(f, geom, layer);
                             processed++;
                     }
                 }
             }
 
-            // ENVIAR RESTO DE BATCH
+            // ENVIAR RESTO DEL BATCH
             if (!batchForRabbit.isEmpty()) {
                 rabbitTemplate.convertAndSend(LIGHTPOINT_EXCHANGE, LIGHTPOINT_IMPORT_KEY, batchForRabbit);
                 processed += batchForRabbit.size();
@@ -208,7 +216,9 @@ public class GisImportWorker {
     private String extractPropertiesJson(SimpleFeature f) {
         Map<String, Object> props = new LinkedHashMap<>();
 
-        for (org.geotools.api.feature.type.PropertyDescriptor pd : f.getType().getDescriptors()) {
+        for (org.geotools.api.feature.type.PropertyDescriptor pd :
+                f.getType().getDescriptors()) {
+
             String key = pd.getName().toString();
             if ("the_geom".equals(key)) continue;
 
