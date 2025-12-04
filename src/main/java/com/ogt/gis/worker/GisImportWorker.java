@@ -24,9 +24,18 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 @RequiredArgsConstructor
@@ -74,7 +83,6 @@ public class GisImportWorker {
                     ? layer.getSrid()
                     : coordinateService.detectUTMZone(-40.3);
 
-            // ✅ SE DECLARA UNA SOLA VEZ AQUÍ
             String geometryTypeAllowed =
                     layer.getGeometryType() != null ? layer.getGeometryType().toUpperCase() : null;
 
@@ -82,19 +90,94 @@ public class GisImportWorker {
                     layer.getBusinessTarget() != null ? layer.getBusinessTarget().toUpperCase() : "NONE";
 
             File file = new File(job.getFileUrl());
+
+            int processed = 0;
+            List<Map<String, Object>> batchForRabbit = new ArrayList<>();
+
+            // ✅ RUTA ESPECIAL PARA KML (SIN DATASTORE)
+            if (file.getName().toLowerCase().endsWith(".kml")) {
+                log.info("📍 Detectado archivo KML, usando parser XML manual");
+
+                try {
+                    List<KmlPlacemark> placemarks = parseKmlManually(file);
+
+                    for (KmlPlacemark pm : placemarks) {
+                        // Crear punto JTS en WGS84 (KML siempre usa este sistema)
+                        Coordinate coord = new Coordinate(pm.lon, pm.lat);
+                        Point point = geometryFactory.createPoint(coord);
+                        point.setSRID(4326);
+
+                        // Mapear a DTO
+                        Map<String, Object> dto = new HashMap<>();
+                        dto.put("code", pm.name);
+
+                        // Parsear description si existe
+                        if (pm.description != null && !pm.description.isEmpty()) {
+                            parseKmlDescription(pm.description, dto);
+                        }
+
+                        // Coordenadas (mantenemos en WGS84)
+                        dto.put("wgsLat", pm.lat);
+                        dto.put("wgsLon", pm.lon);
+                        dto.put("sirgasX", pm.lon);
+                        dto.put("sirgasY", pm.lat);
+                        dto.put("srid", 4326);
+
+                        batchForRabbit.add(dto);
+
+                        // Enviar batch cada 50
+                        if (batchForRabbit.size() >= 50) {
+                            log.info("📤 Enviando batch de {} puntos a RabbitMQ", batchForRabbit.size());
+                            rabbitTemplate.convertAndSend(
+                                    LIGHTPOINT_EXCHANGE,
+                                    LIGHTPOINT_IMPORT_KEY,
+                                    batchForRabbit);
+                            log.info("✅ Batch enviado correctamente");
+                            processed += batchForRabbit.size();
+                            batchForRabbit.clear();
+                        }
+                    }
+
+                    // Enviar resto del batch
+                    if (!batchForRabbit.isEmpty()) {
+                        log.info("📤 Enviando último batch de {} puntos a RabbitMQ", batchForRabbit.size());
+                        rabbitTemplate.convertAndSend(
+                                LIGHTPOINT_EXCHANGE,
+                                LIGHTPOINT_IMPORT_KEY,
+                                batchForRabbit);
+                        log.info("✅ Último batch enviado correctamente");
+                        processed += batchForRabbit.size();
+                    }
+
+                    job.setStatus("COMPLETED");
+                    job.setRowsProcessed(processed);
+                    job.setCompletedAt(LocalDateTime.now());
+                    jobRepository.save(job);
+
+                    log.info("✅ Importación KML completada. Registros procesados: {}", processed);
+                    return; // ← IMPORTANTE: salir aquí para no procesar con DataStore
+
+                } catch (Exception e) {
+                    log.error("❌ Error procesando KML", e);
+                    job.setStatus("FAILED");
+                    job.setErrorMessage(e.getMessage());
+                    job.setCompletedAt(LocalDateTime.now());
+                    jobRepository.save(job);
+                    return;
+                }
+            }
+
+            // ✅ RUTA NORMAL PARA SHAPEFILES Y OTROS FORMATOS
             Map<String, Object> params = new HashMap<>();
             params.put("url", file.toURI().toURL());
-
             DataStore dataStore = DataStoreFinder.getDataStore(params);
+
             if (dataStore == null)
                 throw new RuntimeException("No se pudo abrir el archivo (formato no soportado)");
 
             String typeName = dataStore.getTypeNames()[0];
             FeatureSource<SimpleFeatureType, SimpleFeature> source =
                     dataStore.getFeatureSource(typeName);
-
-            int processed = 0;
-            List<Map<String, Object>> batchForRabbit = new ArrayList<>();
 
             try (FeatureIterator<SimpleFeature> features = source.getFeatures().features()) {
 
@@ -129,8 +212,12 @@ public class GisImportWorker {
                                 batchForRabbit.add(dto);
                             }
                             if (batchForRabbit.size() >= 50) {
+                                log.info("📤 Enviando batch de {} puntos a RabbitMQ", batchForRabbit.size());
                                 rabbitTemplate.convertAndSend(
-                                        LIGHTPOINT_EXCHANGE, LIGHTPOINT_IMPORT_KEY, batchForRabbit);
+                                        LIGHTPOINT_EXCHANGE,
+                                        LIGHTPOINT_IMPORT_KEY,
+                                        batchForRabbit);
+                                log.info("✅ Batch enviado correctamente");
                                 processed += batchForRabbit.size();
                                 batchForRabbit.clear();
                             }
@@ -150,7 +237,12 @@ public class GisImportWorker {
 
             // ENVIAR RESTO DEL BATCH
             if (!batchForRabbit.isEmpty()) {
-                rabbitTemplate.convertAndSend(LIGHTPOINT_EXCHANGE, LIGHTPOINT_IMPORT_KEY, batchForRabbit);
+                log.info("📤 Enviando último batch de {} puntos a RabbitMQ", batchForRabbit.size());
+                rabbitTemplate.convertAndSend(
+                        LIGHTPOINT_EXCHANGE,
+                        LIGHTPOINT_IMPORT_KEY,
+                        batchForRabbit);
+                log.info("✅ Último batch enviado correctamente");
                 processed += batchForRabbit.size();
             }
 
@@ -169,6 +261,113 @@ public class GisImportWorker {
             job.setErrorMessage(e.getMessage());
             job.setCompletedAt(LocalDateTime.now());
             jobRepository.save(job);
+        }
+    }
+
+    // ✅ NUEVO: Parser manual de KML usando DOM
+    private List<KmlPlacemark> parseKmlManually(File kmlFile) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        org.w3c.dom.Document doc = builder.parse(kmlFile);
+
+        NodeList placemarks = doc.getElementsByTagName("Placemark");
+        List<KmlPlacemark> result = new ArrayList<>();
+
+        for (int i = 0; i < placemarks.getLength(); i++) {
+            Element placemark = (Element) placemarks.item(i);
+
+            try {
+                String name = getXmlTagValue("name", placemark);
+                String description = getXmlTagValue("description", placemark);
+                String coordsStr = getXmlTagValue("coordinates", placemark);
+
+                if (coordsStr == null || coordsStr.isEmpty()) {
+                    log.warn("⚠️ Placemark sin coordenadas: {}", name);
+                    continue;
+                }
+
+                // Parsear coordenadas: "lon,lat,alt" o "lon,lat"
+                String[] coords = coordsStr.trim().split(",");
+                if (coords.length < 2) {
+                    log.warn("⚠️ Formato de coordenadas inválido: {}", coordsStr);
+                    continue;
+                }
+
+                double lon = Double.parseDouble(coords[0].trim());
+                double lat = Double.parseDouble(coords[1].trim());
+
+                result.add(new KmlPlacemark(name, description, lon, lat));
+
+            } catch (Exception e) {
+                log.error("❌ Error parseando placemark {}: {}", i, e.getMessage());
+            }
+        }
+
+        log.info("✅ Parseados {} placemarks del KML", result.size());
+        return result;
+    }
+
+    private String getXmlTagValue(String tag, Element element) {
+        NodeList nodeList = element.getElementsByTagName(tag);
+        if (nodeList.getLength() > 0) {
+            Node node = nodeList.item(0);
+            if (node != null && node.getFirstChild() != null) {
+                return node.getFirstChild().getNodeValue();
+            }
+        }
+        return null;
+    }
+
+    // ✅ Parsear el campo "description" del KML
+    private void parseKmlDescription(String description, Map<String, Object> dto) {
+        try {
+            // Ejemplo: "0129301720 - ID: 129301720 | Tipo da Lâmpada: FLU0020 | Quantidade: 2 | ..."
+
+            // Extraer código (nombre del placemark)
+            if (!dto.containsKey("code") || dto.get("code") == null) {
+                Pattern codePattern = Pattern.compile("^(\\d+)");
+                Matcher codeMatcher = codePattern.matcher(description);
+                if (codeMatcher.find()) {
+                    dto.put("code", codeMatcher.group(1));
+                }
+            }
+
+            // Extraer tipo de lámpara
+            Pattern lampPattern = Pattern.compile("Tipo da Lâmpada:\\s*([A-Z0-9]+)", Pattern.CASE_INSENSITIVE);
+            Matcher lampMatcher = lampPattern.matcher(description);
+            if (lampMatcher.find()) {
+                dto.put("lampType", lampMatcher.group(1).toUpperCase());
+            }
+
+            // Extraer cantidad
+            Pattern qtyPattern = Pattern.compile("Quantidade:\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
+            Matcher qtyMatcher = qtyPattern.matcher(description);
+            if (qtyMatcher.find()) {
+                dto.put("lampQuantity", Integer.parseInt(qtyMatcher.group(1)));
+            }
+
+            // Extraer município
+            Pattern munPattern = Pattern.compile("Município:\\s*([A-ZÀ-Ú\\s]+)", Pattern.CASE_INSENSITIVE);
+            Matcher munMatcher = munPattern.matcher(description);
+            if (munMatcher.find()) {
+                dto.put("district", munMatcher.group(1).trim());
+            }
+
+            log.debug("✅ Parseado description KML: code={}, lampType={}, quantity={}, district={}",
+                    dto.get("code"), dto.get("lampType"), dto.get("lampQuantity"), dto.get("district"));
+
+        } catch (Exception e) {
+            log.warn("⚠️ Error parseando description del KML: {}", e.getMessage());
+        }
+    }
+
+    // ✅ Helper para extraer atributos de forma segura
+    private String extractAttribute(SimpleFeature feature, String attributeName) {
+        try {
+            Object attr = feature.getAttribute(attributeName);
+            return attr != null ? attr.toString() : null;
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -256,5 +455,22 @@ public class GisImportWorker {
         }
 
         return dto;
+    }
+
+    /**
+     * Clase interna para representar un placemark del KML
+     */
+    private static class KmlPlacemark {
+        String name;
+        String description;
+        double lon;
+        double lat;
+
+        KmlPlacemark(String name, String description, double lon, double lat) {
+            this.name = name;
+            this.description = description;
+            this.lon = lon;
+            this.lat = lat;
+        }
     }
 }

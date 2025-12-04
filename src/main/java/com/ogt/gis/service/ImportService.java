@@ -58,9 +58,10 @@ public class ImportService {
             } else {
                 // Si no es zip, exigir extensión .shp
                 if (!original.toLowerCase().endsWith(".shp")) {
-                    // permitir geojson como alternativa (opcional)
-                    if (!original.toLowerCase().endsWith(".geojson") && !original.toLowerCase().endsWith(".json")) {
-                        throw new RuntimeException("Formato no soportado. Subir .zip (shapefile) o .shp o .geojson");
+                    if (!original.toLowerCase().endsWith(".geojson") &&
+                            !original.toLowerCase().endsWith(".json") &&
+                            !original.toLowerCase().endsWith(".kml")) {  // ← AGREGAR ESTO
+                        throw new RuntimeException("Formato no soportado. Subir .zip, .shp, .geojson o .kml");
                     }
                 }
             }

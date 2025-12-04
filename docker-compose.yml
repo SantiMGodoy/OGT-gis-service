@@ -8,24 +8,24 @@ services:
       SA_PASSWORD: "StrongPassword123!"
       MSSQL_PID: "Developer"
     ports:
-      - "1433:1433"
+      - "1444:1433"
     volumes:
       - sqlserver_gis_data:/var/opt/mssql
     networks:
       - ogt-network
 
   # Mensajería (RabbitMQ)
-  gis-rabbitmq:
-    image: rabbitmq:3.12-management
-    container_name: ogt-gis-rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin123
-    ports:
-      - "5672:5672"   # App Java
-      - "15672:15672" # Panel Web
-    networks:
-      - ogt-network
+#  gis-rabbitmq:
+#    image: rabbitmq:3.12-management
+#    container_name: ogt-gis-rabbitmq
+#    environment:
+#      RABBITMQ_DEFAULT_USER: admin
+#      RABBITMQ_DEFAULT_PASS: admin123
+#    ports:
+#      - "5672:5672"
+#      - "15673:15672"
+#    networks:
+#      - ogt-network
 
   # MinIO (Para guardar archivos exportados - DXF/SHP)
   gis-minio:
@@ -36,8 +36,8 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"   # API
-      - "9001:9001"   # Console UI
+      - "9100:9000"
+      - "9101:9001"
     volumes:
       - minio_gis_data:/data
     networks:
