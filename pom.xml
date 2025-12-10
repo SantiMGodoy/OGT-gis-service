@@ -120,7 +120,7 @@
             <version>${geotools.version}</version>
         </dependency>
 
-        <!-- KML SUPPORT (ESTE ES EL CORRECTO PARA 30.0+) -->
+        <!-- KML SUPPORT -->
         <dependency>
             <groupId>org.geotools.xsd</groupId>
             <artifactId>gt-xsd-kml</artifactId>
@@ -147,6 +147,19 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Apache POI para Excel (agregar en la sección <dependencies>) -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+
     </dependencies>
 
     <dependencyManagement>

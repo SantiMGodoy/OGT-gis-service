@@ -30,7 +30,7 @@ public class ImportService {
     private final Path tempDir = Path.of(System.getProperty("java.io.tmpdir"), "ogt-gis-imports");
 
     /**
-     * Guarda el archivo (y si es zip, lo descomprime buscando .shp) y encola el job.
+     * Guarda el archivo (y si es zip, lo descomprime buscando .shp o .xlsx/.xls) y encola el job.
      * Devuelve jobId.
      */
     @Transactional
@@ -44,45 +44,52 @@ public class ImportService {
                 throw new RuntimeException("Archivo demasiado grande");
 
             String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload";
+            String lowerName = original.toLowerCase();
+            log.info("Original filename: {} (lower: {})", original, lowerName); // Log para depuración
+
             String filename = UUID.randomUUID() + "_" + original;
             Path target = tempDir.resolve(filename);
             file.transferTo(target.toFile());
 
-            // Si es ZIP -> extraer y localizar .shp
-            Path shpPath = target;
-            if (isZipFile(target)) {
-                shpPath = extractShapefileFromZip(target);
-                if (shpPath == null) {
-                    throw new RuntimeException("ZIP no contiene archivo .shp válido");
+            // Determinar la ruta final del archivo a procesar
+            Path finalPath = target;
+
+            // Solo validar como ZIP si el archivo termina en .zip
+            if (lowerName.endsWith(".zip")) {
+                if (isZipFile(target)) {
+                    finalPath = extractFromZip(target); // Modificado para manejar .shp o .xlsx
+                    if (finalPath == null) {
+                        throw new RuntimeException("ZIP no contiene archivo .shp o .xlsx válido");
+                    }
                 }
             } else {
-                // Si no es zip, exigir extensión .shp
-                if (!original.toLowerCase().endsWith(".shp")) {
-                    if (!original.toLowerCase().endsWith(".geojson") &&
-                            !original.toLowerCase().endsWith(".json") &&
-                            !original.toLowerCase().endsWith(".kml")) {  // ← AGREGAR ESTO
-                        throw new RuntimeException("Formato no soportado. Subir .zip, .shp, .geojson o .kml");
-                    }
+                // Validar que sea una extensión soportada
+                if (!lowerName.endsWith(".shp") &&
+                        !lowerName.endsWith(".geojson") &&
+                        !lowerName.endsWith(".json") &&
+                        !lowerName.endsWith(".kml") &&
+                        !lowerName.endsWith(".xlsx") &&
+                        !lowerName.endsWith(".xls")) {
+                    throw new RuntimeException("Formato no soportado. Usar: .zip, .shp, .geojson, .kml, .xlsx o .xls");
                 }
             }
 
-            // 2. Crear registro del Job (guardamos la ruta al .shp real en fileUrl)
+            // Crear registro del Job
             ImportJob job = ImportJob.builder()
                     .jobType("IMPORT_SHAPEFILE")
                     .status("PENDING")
-                    .fileUrl(shpPath.toAbsolutePath().toString())
+                    .fileUrl(finalPath.toAbsolutePath().toString())
                     .parameters("Layer: " + layerCode + ", SRID: " + (srid != null ? srid : "auto"))
                     .createdAt(LocalDateTime.now())
                     .build();
 
             jobRepository.save(job);
 
-            // 3. Enviar a RabbitMQ (El GisImportWorker escuchará esto)
-            // Mensaje: jobId;layerCode
+            // Enviar a RabbitMQ
             String message = job.getId() + ";" + layerCode;
             rabbitTemplate.convertAndSend("ogt.gis.events", "gis.import.queue", message);
 
-            log.info("🚀 Importación encolada. Job ID: {} (file: {})", job.getId(), shpPath.getFileName());
+            log.info("🚀 Importación encolada. Job ID: {} (file: {})", job.getId(), finalPath.getFileName());
             return job.getId();
 
         } catch (IOException e) {
@@ -102,17 +109,18 @@ public class ImportService {
     }
 
     /**
-     * Extrae el primer conjunto .shp/.dbf/.shx (si existe) en el zip
-     * Devuelve la ruta al archivo .shp extraído.
+     * Extrae el primer conjunto .shp/.dbf/.shx (si existe) o .xlsx/.xls en el zip.
+     * Devuelve la ruta al archivo principal extraído (.shp o .xlsx/.xls).
      */
-    private Path extractShapefileFromZip(Path zipPath) throws IOException {
+    private Path extractFromZip(Path zipPath) throws IOException {
         Path outDir = tempDir.resolve("extracted_" + UUID.randomUUID());
         Files.createDirectories(outDir);
 
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipPath))) {
             ZipEntry entry;
-            // copiamos todos los ficheros relevantes al mismo directorio
             boolean hasShp = false;
+            boolean hasExcel = false;
+            Path excelPath = null;
             while ((entry = zis.getNextEntry()) != null) {
                 String name = Path.of(entry.getName()).getFileName().toString();
                 if (entry.isDirectory()) continue;
@@ -124,22 +132,30 @@ public class ImportService {
                         zis.transferTo(os);
                     }
                     if (lower.endsWith(".shp")) hasShp = true;
+                } else if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+                    Path outFile = outDir.resolve(name);
+                    try (OutputStream os = Files.newOutputStream(outFile)) {
+                        zis.transferTo(os);
+                    }
+                    hasExcel = true;
+                    excelPath = outFile;
                 }
             }
 
-            if (!hasShp) {
-                // limpiar el directorio si no hay shp
+            if (hasShp) {
+                try (var stream = Files.list(outDir)) {
+                    return stream.filter(p -> p.getFileName().toString().toLowerCase().endsWith(".shp"))
+                            .findFirst()
+                            .orElse(null);
+                }
+            } else if (hasExcel) {
+                return excelPath;
+            } else {
+                // Limpieza si no hay nada válido
                 Files.walk(outDir)
                         .sorted((a,b)->b.compareTo(a))
                         .forEach(p -> { try { Files.deleteIfExists(p); } catch (IOException ignored) {} });
                 return null;
-            }
-
-            // retornar la ruta del .shp (primer .shp que encuentre)
-            try (var stream = Files.list(outDir)) {
-                return stream.filter(p -> p.getFileName().toString().toLowerCase().endsWith(".shp"))
-                        .findFirst()
-                        .orElse(null);
             }
         }
     }
@@ -148,5 +164,4 @@ public class ImportService {
         return jobRepository.findById(UUID.fromString(jobId))
                 .orElseThrow(() -> new RuntimeException("Job no encontrado: " + jobId));
     }
-
 }
