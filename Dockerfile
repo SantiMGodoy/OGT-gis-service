@@ -70,10 +70,6 @@ USER appuser
 # Exponer puerto
 EXPOSE ${APP_PORT}
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:${APP_PORT}/actuator/health || exit 1
-
 # Configuración JVM optimizada para contenedores
 ENV JAVA_OPTS="-XX:+UseContainerSupport \
     -XX:MaxRAMPercentage=75.0 \
