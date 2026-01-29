@@ -83,7 +83,7 @@ public class ImportService {
                     .createdAt(LocalDateTime.now())
                     .build();
 
-            jobRepository.save(job);
+            job = jobRepository.save(job);
 
             // Enviar a RabbitMQ
             String message = job.getId() + ";" + layerCode;
