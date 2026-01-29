@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -46,4 +47,35 @@ public class ImportJob {
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    @Column(name = "total_rows")
+    private Integer totalRows;
+
+    @Column(name = "rows_with_errors")
+    private Integer rowsWithErrors;
+
+    @Column(name = "progress_percentage")
+    private Integer progressPercentage;
+
+    @Column(name = "error_summary", columnDefinition = "NVARCHAR(MAX)")
+    private String errorSummary;
+
+    @Column(name = "processing_speed") // filas por segundo
+    private Double processingSpeed;
+
+    public void updateProgress(int processed, int total, int errors) {
+        this.rowsProcessed = processed;
+        this.totalRows = total;
+        this.rowsWithErrors = errors;
+        this.progressPercentage = total > 0 ? (int) ((processed * 100.0) / total) : 0;
+    }
+
+    public void calculateSpeed() {
+        if (startedAt != null && rowsProcessed != null && rowsProcessed > 0) {
+            long elapsedSeconds = Duration.between(startedAt, LocalDateTime.now()).getSeconds();
+            if (elapsedSeconds > 0) {
+                this.processingSpeed = (double) rowsProcessed / elapsedSeconds;
+            }
+        }
+    }
 }

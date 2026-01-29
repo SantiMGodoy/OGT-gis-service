@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ogt.gis.entity.*;
 import com.ogt.gis.repository.*;
 import com.ogt.gis.service.CoordinateService;
+import com.ogt.gis.util.ImportErrorLog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -117,6 +118,14 @@ public class GisImportWorker {
                     Map<String, Integer> columnMap = buildColumnMap(headerRow);
                     log.info("📊 Columnas detectadas: {}", columnMap.keySet());
 
+                    // En el método processImport()
+                    int totalRows = sheet.getLastRowNum() - headerRowIndex;
+                    job.setTotalRows(totalRows);
+                    jobRepository.save(job);
+
+                    ImportErrorLog errorLog = new ImportErrorLog();
+                    int processedCount = 0;
+
                     // 2. Iterar filas de datos
                     for (int i = headerRowIndex + 1; i <= sheet.getLastRowNum(); i++) {
                         Row row = sheet.getRow(i);
@@ -159,8 +168,18 @@ public class GisImportWorker {
                                 batchForRabbit.clear();
                             }
 
+                            processedCount++;
+
+                            // Actualizar progreso cada 10 filas o al final
+                            if (processedCount % 10 == 0 || i == sheet.getLastRowNum()) {
+                                job.updateProgress(processedCount, totalRows, errorLog.getErrorCount());
+                                job.calculateSpeed();
+                                jobRepository.save(job);
+                            }
+
                         } catch (Exception e) {
-                            log.warn("⚠️ Error procesando fila Excel {}: {}", i, e.getMessage());
+                            errorLog.addError(i, "PARSE_ERROR", e.getMessage());
+                            log.warn("⚠️ Error procesando fila {}: {}", i, e.getMessage());
                         }
                     }
 
@@ -168,6 +187,11 @@ public class GisImportWorker {
                         sendBatchToRabbitMQ(batchForRabbit);
                         processed += batchForRabbit.size();
                     }
+
+                    // Al finalizar
+                    job.setErrorSummary(errorLog.getSummary());
+                    job.setRowsWithErrors(errorLog.getErrorCount());
+                    jobRepository.save(job);
 
                     completeJob(job, processed);
                     log.info("✅ Importación XLSX completada. Registros procesados: {}", processed);
