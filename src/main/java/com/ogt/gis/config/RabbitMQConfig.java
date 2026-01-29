@@ -54,6 +54,28 @@ public class RabbitMQConfig {
                 .build();
     }
 
+    /**
+     * Queue durable para importación de puntos luminosos.
+     * Esta queue es consumida por el light-point-service.
+     */
+    @Bean
+    public Queue lightpointImportQueue() {
+        return QueueBuilder.durable("lightpoint.import.batch.queue")
+                .build();
+    }
+
+    /**
+     * Binding que conecta el exchange de lightpoint con la queue de importación.
+     * Routing key: "lightpoint.import.batch"
+     */
+    @Bean
+    public Binding lightpointImportBinding(Queue lightpointImportQueue, TopicExchange lightPointExchange) {
+        return BindingBuilder
+                .bind(lightpointImportQueue)
+                .to(lightPointExchange)
+                .with("lightpoint.import.batch");
+    }
+
     // ========== JSON MESSAGE CONVERTER ==========
     @Bean
     public MessageConverter jsonMessageConverter() {
