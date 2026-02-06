@@ -29,12 +29,19 @@
             <id>osgeo</id>
             <name>OSGeo Release Repository</name>
             <url>https://repo.osgeo.org/repository/release/</url>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/SantiMGodoy/ogt-common</url>
+            <snapshots><enabled>true</enabled></snapshots>
         </repository>
     </repositories>
 
     <dependencies>
 
-        <!-- Spring Boot -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -56,7 +63,6 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
-        <!-- Cloud -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-config</artifactId>
@@ -66,7 +72,6 @@
             <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
         </dependency>
 
-        <!-- SQL Server + Flyway -->
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>mssql-jdbc</artifactId>
@@ -80,7 +85,6 @@
             <artifactId>flyway-sqlserver</artifactId>
         </dependency>
 
-        <!-- Lombok & Hibernate Spatial -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -91,7 +95,6 @@
             <artifactId>hibernate-spatial</artifactId>
         </dependency>
 
-        <!-- GeoTools Core -->
         <dependency>
             <groupId>org.geotools</groupId>
             <artifactId>gt-main</artifactId>
@@ -108,7 +111,6 @@
             <version>${geotools.version}</version>
         </dependency>
 
-        <!-- REPROYECCIÓN REAL (OBLIGATORIO) -->
         <dependency>
             <groupId>org.geotools</groupId>
             <artifactId>gt-referencing</artifactId>
@@ -120,35 +122,30 @@
             <version>${geotools.version}</version>
         </dependency>
 
-        <!-- KML SUPPORT -->
         <dependency>
             <groupId>org.geotools.xsd</groupId>
             <artifactId>gt-xsd-kml</artifactId>
             <version>${geotools.version}</version>
         </dependency>
 
-        <!-- JTS -->
         <dependency>
             <groupId>org.locationtech.jts</groupId>
             <artifactId>jts-core</artifactId>
             <version>1.19.0</version>
         </dependency>
 
-        <!-- OpenAPI -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>2.6.0</version>
         </dependency>
 
-        <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
 
-        <!-- Apache POI para Excel (agregar en la sección <dependencies>) -->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi</artifactId>
@@ -168,6 +165,12 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.ogt</groupId>
+            <artifactId>ogt-common</artifactId>
+            <version>1.4.0</version>
         </dependency>
 
     </dependencies>
@@ -192,4 +195,5 @@
             </plugin>
         </plugins>
     </build>
+
 </project>
