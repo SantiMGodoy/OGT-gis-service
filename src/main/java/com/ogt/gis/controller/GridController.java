@@ -1,5 +1,6 @@
 package com.ogt.gis.controller;
 
+import com.ogt.common.audit.Audit;
 import com.ogt.gis.service.GridGeoJsonService;
 import com.ogt.gis.service.GridService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ public class GridController {
     private final GridGeoJsonService gridGeoJsonService;
 
     @PostMapping("/generate")
+    @Audit(action = "GERAR_GRADE", module = "GIS", resourceType = "Grid", captureParams = true)
     public ResponseEntity<String> generate(
             @RequestParam String scale,
             @RequestParam double x,

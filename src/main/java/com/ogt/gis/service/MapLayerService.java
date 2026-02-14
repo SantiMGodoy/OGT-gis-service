@@ -1,5 +1,7 @@
 package com.ogt.gis.service;
 
+import com.ogt.common.exception.BusinessException;
+import com.ogt.common.exception.ResourceNotFoundException;
 import com.ogt.gis.dto.MapLayerDTO;
 import com.ogt.gis.entity.MapLayer;
 import com.ogt.gis.repository.MapLayerRepository;
@@ -27,7 +29,7 @@ public class MapLayerService {
     @Transactional
     public MapLayerDTO createLayer(MapLayerDTO dto) {
         if (layerRepository.existsByCode(dto.getCode())) {
-            throw new RuntimeException("Ya existe una capa con el código: " + dto.getCode());
+            throw new BusinessException("Ya existe una capa con el código: " + dto.getCode());
         }
         MapLayer layer = toEntity(dto);
         return toDTO(layerRepository.save(layer));
@@ -36,7 +38,7 @@ public class MapLayerService {
     @Transactional
     public MapLayerDTO updateLayer(UUID id, MapLayerDTO dto) {
         MapLayer layer = layerRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Capa no encontrada"));
+                .orElseThrow(() -> new ResourceNotFoundException("Capa no encontrada"));
 
         layer.setName(dto.getName());
         layer.setStyle(dto.getStyle());

@@ -1,5 +1,6 @@
 package com.ogt.gis.controller;
 
+import com.ogt.common.audit.Audit;
 import com.ogt.gis.service.ExportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ public class ExportController {
     private final ExportService exportService;
 
     @PostMapping
+    @Audit(action = "EXPORTAR_CAMADA", module = "GIS", resourceType = "ExportJob", captureParams = true)
     public ResponseEntity<?> exportLayer(
             @RequestParam String layerCode,
             @RequestParam String format, // SHP, DXF, KML
