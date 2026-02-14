@@ -1,5 +1,6 @@
 package com.ogt.gis.controller;
 
+import com.ogt.common.audit.Audit;
 import com.ogt.gis.dto.ImportRequestDTO;
 import com.ogt.gis.entity.ImportJob;
 import com.ogt.gis.service.ImportService;
@@ -19,6 +20,7 @@ public class ImportController {
     private final ImportService importService;
 
     @PostMapping
+    @Audit(action = "IMPORTAR_DADOS_GIS", module = "GIS", resourceType = "ImportJob", captureParams = true)
     public ResponseEntity<?> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam("layerCode") String layerCode,

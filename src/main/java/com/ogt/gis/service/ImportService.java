@@ -1,5 +1,7 @@
 package com.ogt.gis.service;
 
+import com.ogt.common.exception.BusinessException;
+import com.ogt.common.exception.ResourceNotFoundException;
 import com.ogt.gis.dto.ImportRequestDTO;
 import com.ogt.gis.entity.ImportJob;
 import com.ogt.gis.repository.ImportJobRepository;
@@ -39,9 +41,9 @@ public class ImportService {
             if (!Files.exists(tempDir)) Files.createDirectories(tempDir);
 
             // Validaciones básicas
-            if (file.isEmpty()) throw new RuntimeException("Archivo vacío");
+            if (file.isEmpty()) throw new BusinessException("Archivo vacío");
             if (file.getSize() > 200L * 1024L * 1024L) // límite 200MB (ajustable)
-                throw new RuntimeException("Archivo demasiado grande");
+                throw new BusinessException("Archivo demasiado grande");
 
             String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload";
             String lowerName = original.toLowerCase();
