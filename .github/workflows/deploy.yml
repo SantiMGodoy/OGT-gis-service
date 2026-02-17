@@ -1,0 +1,34 @@
+name: Deploy GIS Service
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "🚀 Iniciando despliegue de GIS Service..."
+            
+            # 1. Actualizar el código del microservicio
+            cd /root/Backend/OGT-gis-service
+            git pull origin main
+            
+            # 2. Ir a la infraestructura y reconstruir
+            cd /root/Backend/OGT-infrastructure
+            
+            echo "🛠️ Reconstruyendo contenedor de GIS Service..."
+            # Usamos --env-file por seguridad para las dependencias de ogt-common
+            docker compose --env-file .env up -d --build gis-service
+            
+            # 3. Limpieza de imágenes huérfanas
+            docker image prune -f
+            
+            echo "✅ ¡Despliegue de GIS Service completado!"
