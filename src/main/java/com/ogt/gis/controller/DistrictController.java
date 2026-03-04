@@ -4,6 +4,7 @@ import com.ogt.gis.entity.DistrictBoundary;
 import com.ogt.gis.service.DistrictService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/gis/districts")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'TECHNICIAN', 'FISCAL')")
 public class DistrictController {
 
     private final DistrictService districtService;

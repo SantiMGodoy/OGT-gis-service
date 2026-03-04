@@ -4,6 +4,7 @@ import com.ogt.common.audit.Audit;
 import com.ogt.gis.service.ExportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/gis/export")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'TECHNICIAN', 'FISCAL')")
 public class ExportController {
 
     private final ExportService exportService;

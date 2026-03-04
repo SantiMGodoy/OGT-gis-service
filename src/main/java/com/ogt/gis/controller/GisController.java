@@ -8,6 +8,7 @@ import com.ogt.gis.service.SpatialQueryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/gis")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'TECHNICIAN', 'FISCAL')")
 public class GisController {
 
     private final CoordinateService coordinateService;
