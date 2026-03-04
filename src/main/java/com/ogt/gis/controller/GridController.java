@@ -5,6 +5,7 @@ import com.ogt.gis.service.GridGeoJsonService;
 import com.ogt.gis.service.GridService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/gis/grids")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'TECHNICIAN', 'FISCAL')")
 public class GridController {
 
     private final GridService gridService;
@@ -24,6 +26,7 @@ public class GridController {
      * Width/height in meters. Grid is generated in UTM and stored as WGS84.
      */
     @PostMapping("/generate")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Audit(action = "GERAR_GRADE", module = "GIS", resourceType = "Grid", captureParams = true)
     public ResponseEntity<Map<String, Object>> generate(
             @RequestParam String scale,
@@ -68,6 +71,7 @@ public class GridController {
      * Recalculates light point counts for all grid cells.
      */
     @PostMapping("/recalculate-counts")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Audit(action = "RECALCULAR_CONTEO_GRADE", module = "GIS", resourceType = "Grid")
     public ResponseEntity<Map<String, Object>> recalculateCounts() {
         int updated = gridService.recalculateLightPointCounts();
@@ -81,6 +85,7 @@ public class GridController {
      * Deletes all grid cells for a given scale.
      */
     @DeleteMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Audit(action = "DELETAR_GRADE", module = "GIS", resourceType = "Grid", captureParams = true)
     public ResponseEntity<Map<String, Object>> deleteByScale(
             @RequestParam String scale
