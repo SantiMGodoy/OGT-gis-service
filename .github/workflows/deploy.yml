@@ -18,11 +18,11 @@ jobs:
             echo "🚀 Iniciando despliegue de GIS Service..."
             
             # 1. Actualizar el código del microservicio
-            cd /root/Backend/OGT-gis-service
+            cd /opt/ogt/Backend/OGT-gis-service
             git pull origin main
             
             # 2. Ir a la infraestructura y reconstruir
-            cd /root/Backend/OGT-infrastructure
+            cd /opt/ogt/Backend/OGT-infrastructure
             
             echo "🛠️ Reconstruyendo contenedor de GIS Service..."
             # Usamos --env-file por seguridad para las dependencias de ogt-common
